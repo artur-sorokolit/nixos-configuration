@@ -123,7 +123,7 @@ PanelWindow {
     property real selW: Math.abs(endX - startX)
     property real selH: Math.abs(endY - startY)
     
-    property string geometryString: `${Math.round(selX)},${Math.round(selY)} ${Math.round(selW)}x${Math.round(selH)}`
+    property string geometryString: `${Math.round(selX + screen.x)},${Math.round(selY + screen.y)} ${Math.round(selW)}x${Math.round(selH)}`
     property int interactionMode: 0
     property real anchorX: 0; property real anchorY: 0
     property real initX: 0; property real initY: 0
@@ -971,7 +971,7 @@ PanelWindow {
     Timer {
         id: captureTimer
         property string pendingCmd: ""
-        interval: 80
+        interval: 200
         repeat: false
         onTriggered: {
             Quickshell.execDetached(["bash", "-c", pendingCmd])

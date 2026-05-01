@@ -2,7 +2,7 @@
 reload_apps = false
 
 [templates.quickshell]
-input_path = "~/.config/hypr/scripts/quickshell/colors.json.template"
+input_path = "~/.config/matugen/templates/qs_colors.json.template"
 output_path = "/tmp/qs_colors.json"
 
 [templates.kitty]

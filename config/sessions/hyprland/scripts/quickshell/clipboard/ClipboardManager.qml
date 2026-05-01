@@ -45,8 +45,11 @@ Item {
     property bool previewMode: false
     property bool previewAnimationDone: false
     property string fullTextPreview: ""
-    property int pendingIndex: -1 // Tracks intended keyboard jumps while loading
-    
+    property int pendingIndex: -1
+
+    property real layoutWidth: width
+    property real layoutHeight: height
+
     // Startup state to prevent accordion layout shifts
     property bool isInitialLoad: true
 
@@ -141,7 +144,6 @@ Item {
             }
         }
         
-        // Flawlessly resolve any keyboard navigation that was waiting for data
         if (window.pendingIndex !== -1) {
             if (window.pendingIndex < clipModel.count) {
                 clipList.currentIndex = window.pendingIndex;
@@ -190,13 +192,14 @@ Item {
                 if (window.allClips.length === 0) {
                     window.isInitialLoad = true;
                 }
+
                 focusTimer.restart();
                 introPhaseAnim.restart();
                 window.navDuration = 0; 
                 window.previewMode = false;
                 window.previewAnimationDone = false;
                 window.fullTextPreview = "";
-                window.pendingIndex = -1; // Reset pending state
+                window.pendingIndex = -1;
                 
                 window.currentOffset = 0;
                 window.hasMore = true;
@@ -229,7 +232,7 @@ Item {
 
     Rectangle {
         id: mainBg
-        width: parent.width
+        width: layoutWidth
         
         property real searchHeight: window.s(65)
         property real separatorHeight: 1
@@ -238,21 +241,9 @@ Item {
         property real cellH: window.s(145) 
         
         property real maxVisibleRows: 4 
-        property real visibleRows: (window.isInitialLoad) ? maxVisibleRows : Math.min(Math.ceil(clipModel.count / cols), maxVisibleRows)
-        property real targetListHeight: (clipModel.count === 0 && !window.isInitialLoad) ? 0 : (visibleRows * cellH)
-        property real targetMargins: (clipModel.count > 0 || window.isInitialLoad) ? window.s(20) : 0
-
-        property real animatedListHeight: targetListHeight
-        property real animatedMargins: targetMargins
-
-        Behavior on animatedListHeight { 
-            enabled: !window.isInitialLoad
-            NumberAnimation { duration: 500; easing.type: Easing.OutExpo } 
-        }
-        Behavior on animatedMargins { 
-            enabled: !window.isInitialLoad
-            NumberAnimation { duration: 500; easing.type: Easing.OutExpo } 
-        }
+        property real visibleRows: maxVisibleRows
+        property real animatedListHeight: visibleRows * cellH
+        property real animatedMargins: window.s(20)
 
         height: searchHeight + separatorHeight + animatedMargins + animatedListHeight
 
@@ -286,8 +277,6 @@ Item {
             Behavior on color { ColorAnimation { duration: 1000 } }
         }
 
-        // FIXED: Replaced ColumnLayout with absolute anchoring to completely stabilize 
-        // the layout recalculations when the container height is morphing.
         Rectangle {
             id: headerArea
             anchors.top: parent.top
@@ -381,7 +370,7 @@ Item {
                         if (targetIdx < clipModel.count) { 
                             clipList.currentIndex = targetIdx; 
                         } else if (window.hasMore) {
-                            window.pendingIndex = targetIdx; // Wait and jump
+                            window.pendingIndex = targetIdx;
                             window.loadMore();
                         }
                         event.accepted = true;
@@ -408,7 +397,7 @@ Item {
                             if (targetIdx < clipModel.count) {
                                 clipList.currentIndex = targetIdx;
                             } else if (window.hasMore) {
-                                window.pendingIndex = targetIdx; // Retain column lock while loading
+                                window.pendingIndex = targetIdx;
                                 window.loadMore();
                             } else {
                                 clipList.currentIndex = clipModel.count - 1;
@@ -471,10 +460,9 @@ Item {
             
             clip: true
             model: clipModel
-            
-            // FIXED: Automatically uses the EXACT safe width to perfectly lock 3 columns without wrapping issues.
-            cellWidth: (width - 0.1) / mainBg.cols
-            cellHeight: mainBg.cellH
+
+	    cellWidth: Math.floor((mainBg.width - window.s(20)) / mainBg.cols)
+	    cellHeight: mainBg.cellH
             
             currentIndex: 0
             boundsBehavior: Flickable.StopAtBounds
@@ -482,17 +470,8 @@ Item {
             highlightFollowsCurrentItem: false
 
             populate: Transition {
-                id: popTrans
-                SequentialAnimation {
-                    PropertyAction { property: "opacity"; value: 0 }
-                    PropertyAction { property: "scale"; value: 0.8 }
-                    PauseAnimation { duration: popTrans.ViewTransition.index * 15 }
-                    ParallelAnimation {
-                        NumberAnimation { property: "opacity"; to: 1; duration: 250; easing.type: Easing.OutCubic }
-                        NumberAnimation { property: "scale"; to: 1; duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-                    }
-                }
-            }
+    		NumberAnimation { property: "opacity"; from: 1; to: 1; duration: 0 }
+	    }
             
             add: Transition {
                 id: addTrans
@@ -524,7 +503,6 @@ Item {
 
             onCurrentIndexChanged: {
                 if (currentIndex >= 0 && clipList.model !== null) {
-                    // Proactive loading check to prevent hitting the bounds in the first place
                     if (currentIndex >= clipModel.count - (mainBg.cols * 2)) {
                         window.loadMore();
                     }

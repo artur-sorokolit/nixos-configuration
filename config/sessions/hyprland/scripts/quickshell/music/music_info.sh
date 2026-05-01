@@ -5,24 +5,30 @@ mkdir -p "$TMP_DIR"
 PLACEHOLDER="$TMP_DIR/placeholder_blank.png"
 STATE_FILE="$TMP_DIR/last_state.json"
 
+# Prevent cold-boot D-Bus hangs from keeping the script alive
+PT="timeout 1.5 playerctl"
+
 # --- 1. ENSURE PLACEHOLDER EXISTS ---
 if [ ! -f "$PLACEHOLDER" ]; then
     convert -size 500x500 xc:"#313244" "$PLACEHOLDER"
 fi
 
 # --- 2. CHECK STATUS ---
-STATUS=$(playerctl status 2>/dev/null)
+STATUS=$($PT status 2>/dev/null)
 
 if [ "$STATUS" = "Playing" ] || [ "$STATUS" = "Paused" ]; then
 
     # --- 3. GET INFO ---
-    rawUrl=$(playerctl metadata mpris:artUrl 2>/dev/null)
-    title=$(playerctl metadata xesam:title 2>/dev/null)
-    artist=$(playerctl metadata xesam:artist 2>/dev/null)
+    rawUrl=$($PT metadata mpris:artUrl 2>/dev/null)
+    title=$($PT metadata xesam:title 2>/dev/null)
+    artist=$($PT metadata xesam:artist 2>/dev/null)
     
-    # Generate Hash
-    idStr="${title:-unknown}-${artist:-unknown}"
-    trackHash=$(echo "$idStr" | md5sum | cut -d" " -f1)
+    if [ -n "$rawUrl" ]; then
+        trackHash=$(echo "$rawUrl" | md5sum | cut -d" " -f1)
+    else
+        idStr="${title:-unknown}-${artist:-unknown}"
+        trackHash=$(echo "$idStr" | md5sum | cut -d" " -f1)
+    fi
     
     finalArt="$TMP_DIR/${trackHash}_art.jpg"
     blurPath="$TMP_DIR/${trackHash}_blur.png"
@@ -30,7 +36,6 @@ if [ "$STATUS" = "Playing" ] || [ "$STATUS" = "Paused" ]; then
     textPath="$TMP_DIR/${trackHash}_text.txt"
     lockFile="$TMP_DIR/${trackHash}.lock"
 
-    # Default display values (Placeholder)
     displayArt="$PLACEHOLDER"
     displayBlur="$PLACEHOLDER"
     displayGrad="linear-gradient(45deg, #cba6f7, #89b4fa, #f38ba8, #cba6f7)"
@@ -45,30 +50,35 @@ if [ "$STATUS" = "Playing" ] || [ "$STATUS" = "Paused" ]; then
     else
         if [ ! -f "$lockFile" ] && [ -n "$rawUrl" ]; then
             touch "$lockFile"
+            # THE FIX: We redirect standard output/error to /dev/null
+            # This severs the pipe to Quickshell, preventing the 30s Qt destructor lockup.
             (
+                tempArt="$TMP_DIR/${trackHash}_temp_art.jpg"
+                tempBlur="$TMP_DIR/${trackHash}_temp_blur.png"
+
                 if [[ "$rawUrl" == http* ]]; then
-                    curl -s -L --max-time 10 -o "$finalArt" "$rawUrl"
+                    curl -s -L --max-time 10 -o "$tempArt" "$rawUrl"
                 else
                     cleanPath=$(echo "$rawUrl" | sed 's/file:\/\///g')
                     if [ -f "$cleanPath" ]; then
-                        cp "$cleanPath" "$finalArt"
+                        cp "$cleanPath" "$tempArt"
                     else
-                        cp "$PLACEHOLDER" "$finalArt"
+                        cp "$PLACEHOLDER" "$tempArt"
                     fi
                 fi
 
-                if [ ! -s "$finalArt" ]; then
-                    cp "$PLACEHOLDER" "$finalArt"
+                if [ ! -s "$tempArt" ]; then
+                    cp "$PLACEHOLDER" "$tempArt"
                 fi
 
-                isPlaceholder=$(convert "$finalArt" -format "%[hex:u.p{0,0}]" info: 2>/dev/null | cut -c1-6)
+                isPlaceholder=$(convert "$tempArt" -format "%[hex:u.p{0,0}]" info: 2>/dev/null | cut -c1-6)
                 
                 if [[ "$isPlaceholder" == "313244" ]] || [[ -z "$isPlaceholder" ]]; then
-                    cp "$finalArt" "$blurPath"
+                    cp "$tempArt" "$tempBlur"
                 else
-                    convert "$finalArt" -blur 0x20 -brightness-contrast -30x-10 "$blurPath" 2>/dev/null
+                    convert "$tempArt" -blur 0x20 -brightness-contrast -30x-10 "$tempBlur" 2>/dev/null
                     
-                    colors=$(convert "$finalArt" -resize 50x50 -alpha off +dither -quantize RGB -colors 3 -depth 8 -format "%c" histogram:info: 2>/dev/null | grep -E -o '#[0-9A-Fa-f]{6}' | head -n 3 | tr '\n' ' ')
+                    colors=$(convert "$tempArt" -resize 50x50 -alpha off +dither -quantize RGB -colors 3 -depth 8 -format "%c" histogram:info: 2>/dev/null | grep -E -o '#[0-9A-Fa-f]{6}' | head -n 3 | tr '\n' ' ')
                     read -r -a color_array <<< "$colors"
                     
                     c1=${color_array[0]:-#cba6f7}
@@ -85,38 +95,37 @@ if [ "$STATUS" = "Playing" ] || [ "$STATUS" = "Paused" ]; then
                     fi
                 fi
 
+                mv "$tempBlur" "$blurPath"
+                mv "$tempArt" "$finalArt"
+
                 rm "$lockFile"
                 (cd "$TMP_DIR" && ls -1t | tail -n +21 | xargs -r rm 2>/dev/null)
-            ) &
+            ) </dev/null >/dev/null 2>&1 & 
+            # ^^^ This is the magic line that fixes the freeze.
         fi
     fi
 
     # --- 5. TIMING ---
-    len_micro=$(playerctl metadata mpris:length 2>/dev/null)
+    len_micro=$($PT metadata mpris:length 2>/dev/null)
     if [ -z "$len_micro" ] || [ "$len_micro" -eq 0 ]; then len_micro=1000000; fi
     len_sec=$((len_micro / 1000000))
     len_str=$(printf "%02d:%02d" $((len_sec/60)) $((len_sec%60)))
 
     if [ "$STATUS" = "Playing" ]; then
-        # When playing, playerctl reports position correctly — save it
-        pos_micro=$(playerctl metadata --format '{{position}}' 2>/dev/null)
+        pos_micro=$($PT metadata --format '{{position}}' 2>/dev/null)
         if [ -z "$pos_micro" ]; then pos_micro=0; fi
         pos_sec=$((pos_micro / 1000000))
 
-        # Persist for use when paused/stopped (Firefox MPRIS reports 0 when paused)
         jq -n -c \
             --argjson pos_sec "$pos_sec" \
             --argjson len_sec "$len_sec" \
             '{pos_sec: $pos_sec, len_sec: $len_sec}' \
             > "$STATE_FILE"
     else
-        # Paused: Firefox (and some other players) report position=0 over D-Bus.
-        # Use last saved position from when it was playing instead.
         pos_sec=0
         if [ -f "$STATE_FILE" ]; then
             saved_pos=$(jq -r '.pos_sec' "$STATE_FILE")
             saved_len=$(jq -r '.len_sec' "$STATE_FILE")
-            # Only restore if it's the same track length (same song)
             if [ "$saved_len" = "$len_sec" ] && [ -n "$saved_pos" ] && [ "$saved_pos" != "null" ]; then
                 pos_sec=$saved_pos
             fi
@@ -128,14 +137,15 @@ if [ "$STATUS" = "Playing" ] || [ "$STATUS" = "Paused" ]; then
     time_str="${pos_str} / ${len_str}"
 
     # --- 6. DEVICE INFO ---
-    player_raw=$(playerctl status -f "{{playerName}}" 2>/dev/null | head -n 1)
+    player_raw=$($PT status -f "{{playerName}}" 2>/dev/null | head -n 1)
     player_nice="${player_raw^}"
 
-    sink_name=$(pactl get-default-sink 2>/dev/null)
+    # Adding a fast timeout to pactl as well, since audio sockets can hang on cold boot
+    sink_name=$(timeout 0.5 pactl get-default-sink 2>/dev/null)
     dev_icon="󰓃"; dev_name="Speaker"
     if [[ "$sink_name" == *"bluez"* ]]; then
         dev_icon="󰂯"
-        readable_name=$(pactl list sinks | grep -A 20 "$sink_name" | grep -m 1 "Description:" | cut -d: -f2 | xargs)
+        readable_name=$(timeout 0.5 pactl list sinks | grep -A 20 "$sink_name" | grep -m 1 "Description:" | cut -d: -f2 | xargs)
         if [ -n "$readable_name" ]; then dev_name="$readable_name"; else dev_name="Bluetooth"; fi
     elif [[ "$sink_name" == *"usb"* ]]; then
         dev_icon="󰓃"; dev_name="USB Audio"
@@ -184,7 +194,6 @@ if [ "$STATUS" = "Playing" ] || [ "$STATUS" = "Paused" ]; then
 
 else
     # --- FALLBACK (Stopped) ---
-    # Restore last known position so the widget does not snap to 00:00
     if [ -f "$STATE_FILE" ]; then
         last_pos_sec=$(jq -r '.pos_sec' "$STATE_FILE")
         last_len_sec=$(jq -r '.len_sec' "$STATE_FILE")

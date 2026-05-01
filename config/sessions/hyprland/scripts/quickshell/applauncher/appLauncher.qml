@@ -266,7 +266,7 @@ Item {
                     spacing: window.s(15)
 
                     Text {
-                        text: ""
+                        text: ""
                         font.family: "Iosevka Nerd Font"
                         font.pixelSize: window.s(18)
                         color: searchInput.activeFocus ? window.mauve : window.subtext0
@@ -338,6 +338,8 @@ Item {
                 Layout.leftMargin: window.s(10)
                 Layout.rightMargin: window.s(10)
                 
+                // clip: true is critical — it masks items that are outside the
+                // visible list area so they cannot bleed through during transitions.
                 clip: true
                 model: appModel
                 spacing: mainBg.listSpacing
@@ -352,32 +354,38 @@ Item {
                     }
                 }
 
-                // --- ELEGANT LIST ITEM ANIMATIONS ---
+                // --- LIST ITEM TRANSITIONS ---
+                // Key fix: NO z-layer tricks. The ListView's own clip:true handles
+                // masking. Items animate only opacity + scale so they never visually
+                // "hang" outside the clipped region. The displaced transition slides
+                // existing items to their new positions without fighting the add/remove.
+
                 populate: Transition {
                     ParallelAnimation {
                         NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 550; easing.type: Easing.OutExpo }
-                        NumberAnimation { property: "scale"; from: 0.85; to: 1; duration: 600; easing.type: Easing.OutExpo }
-                        NumberAnimation { properties: "x,y"; duration: 600; easing.type: Easing.OutExpo }
+                        NumberAnimation { property: "scale"; from: 0.88; to: 1; duration: 600; easing.type: Easing.OutExpo }
                     }
                 }
 
                 add: Transition {
                     ParallelAnimation {
-                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 450; easing.type: Easing.OutExpo }
-                        NumberAnimation { property: "scale"; from: 0.85; to: 1; duration: 500; easing.type: Easing.OutExpo }
-                        NumberAnimation { properties: "x,y"; duration: 500; easing.type: Easing.OutExpo }
+                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 380; easing.type: Easing.OutExpo }
+                        NumberAnimation { property: "scale"; from: 0.88; to: 1; duration: 420; easing.type: Easing.OutExpo }
                     }
                 }
                 
                 remove: Transition {
                     ParallelAnimation {
-                        NumberAnimation { property: "opacity"; to: 0; duration: 350; easing.type: Easing.OutExpo }
-                        NumberAnimation { property: "scale"; to: 0.85; duration: 400; easing.type: Easing.OutExpo }
+                        NumberAnimation { property: "opacity"; to: 0; duration: 280; easing.type: Easing.OutExpo }
+                        NumberAnimation { property: "scale"; to: 0.88; duration: 300; easing.type: Easing.OutExpo }
                     }
                 }
                 
+                // displaced runs for items that are already in the list and just
+                // need to slide to a new position — keep it simple and fast so it
+                // finishes well before (or together with) the add transition.
                 displaced: Transition {
-                    NumberAnimation { properties: "x,y"; duration: 500; easing.type: Easing.OutExpo }
+                    NumberAnimation { properties: "x,y"; duration: 380; easing.type: Easing.OutExpo }
                 }
 
                 ScrollBar.vertical: ScrollBar {

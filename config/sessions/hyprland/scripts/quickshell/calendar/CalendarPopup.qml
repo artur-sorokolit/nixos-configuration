@@ -227,7 +227,12 @@ Item {
     // -------------------------------------------------------------------------
     property var weatherData: null
     property int weatherView: 0
-    property color activeWeatherHex: weatherData && weatherData.forecast && weatherData.forecast[weatherView] ? weatherData.forecast[weatherView].hex : window.mauve
+    property color activeWeatherHex: {
+        if (!window.weatherData) return window.mauve;
+        if (window.weatherView === 0 && window.weatherData.current_hex) return window.weatherData.current_hex;
+        if (window.weatherData.forecast && window.weatherData.forecast[window.weatherView]) return window.weatherData.forecast[window.weatherView].hex;
+        return window.mauve;
+    }
 
     // Transition Properties
     property int targetWeatherView: 0
@@ -242,7 +247,17 @@ Item {
     // -------------------------------------------------------------------------
     // TEMPERATURE LOGIC 
     // -------------------------------------------------------------------------
-    property real targetTemp: window.weatherData && window.weatherData.forecast[window.targetWeatherView] ? Number(window.weatherData.forecast[window.targetWeatherView].max) : 0
+    property real targetTemp: {
+        if (!window.weatherData) return 0;
+        if (window.targetWeatherView === 0 && window.weatherData.current_temp !== undefined) {
+            return Number(window.weatherData.current_temp);
+        }
+        if (window.weatherData.forecast && window.weatherData.forecast[window.targetWeatherView]) {
+            return Number(window.weatherData.forecast[window.targetWeatherView].max);
+        }
+        return 0;
+    }
+    
     property real displayedTemp: targetTemp
 
     Behavior on displayedTemp {
@@ -533,7 +548,12 @@ Item {
             Text {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: window.centerOffset
-                text: window.weatherData && window.weatherData.forecast[window.weatherView] ? window.weatherData.forecast[window.weatherView].icon : ""
+                text: {
+                    if (!window.weatherData) return "";
+                    if (window.weatherView === 0 && window.weatherData.current_icon) return window.weatherData.current_icon;
+                    if (window.weatherData.forecast && window.weatherData.forecast[window.weatherView]) return window.weatherData.forecast[window.weatherView].icon;
+                    return "";
+                }
                 font.family: "Iosevka Nerd Font"
                 font.pixelSize: Math.round(800 * window.sf)
                 color: window.activeWeatherHex

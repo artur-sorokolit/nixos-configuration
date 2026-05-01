@@ -1476,7 +1476,7 @@ Item {
 
                                     centralCore.disconnectTriggered = true;
                                     centralCore.flashOpacity = 0.6;
-                                    cardFlashAnim.start();
+                                    coreFlashAnim.start();
                                     coreBumpAnim.start();
                                     
                                     window.playSfx("disconnect.wav");

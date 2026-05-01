@@ -14,7 +14,18 @@ Variants {
         PanelWindow {
             id: barWindow
             property bool pendingReload: false
+	    
+	    Connections {
+                target: Quickshell
 
+                function onReloadCompleted() {
+                    Quickshell.inhibitReloadPopup()
+                }
+
+                function onReloadFailed(errorString) {
+                    Quickshell.inhibitReloadPopup()
+                }
+    	    }        
             IpcHandler {
                 target: "topbar"
                 function forceReload() {
@@ -403,6 +414,17 @@ Variants {
                     musicForceRefresh.running = true;
                     running = false;
                     running = true;
+                }
+            }
+
+            Timer {
+                id: artRetryTimer
+                interval: 500
+                repeat: true
+                running: barWindow.displayArtUrl && barWindow.displayArtUrl.indexOf("placeholder_blank.png") !== -1
+                onTriggered: {
+                    musicForceRefresh.running = false;
+                    musicForceRefresh.running = true;
                 }
             }
 
@@ -1463,9 +1485,7 @@ Variants {
 
                                 Row { 
                                     id: batLayoutRow
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: barWindow.s(12)
+                                    anchors.centerIn: parent
                                     spacing: barWindow.s(8)
                                     Text { 
                                         anchors.verticalCenter: parent.verticalCenter
@@ -1483,8 +1503,8 @@ Variants {
                                     }
                                 }
                                 MouseArea { id: batMouse; hoverEnabled: true; anchors.fill: parent; onClicked: Quickshell.execDetached(["bash", "-c", "~/.config/hypr/scripts/qs_manager.sh toggle battery"]) }
-                            }
-                        }
+                            }                        
+	         	}
 		    }
 		    Rectangle {
                         id: recButton
