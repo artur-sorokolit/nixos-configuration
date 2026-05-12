@@ -40,6 +40,7 @@
     python314
     (wrapFirefox (pkgs.firefox-unwrapped.override { pipewireSupport = true; }) {})
     telegram-desktop
+    pkgs.onlyoffice-desktopeditors
     kitty
     libreoffice-qt
     hunspell
