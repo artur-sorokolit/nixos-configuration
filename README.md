@@ -19,15 +19,6 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/ilyamiro/imperative-dots
 
 ### You can find all of my wallpapers **[HERE](https://github.com/ilyamiro/shell-wallpapers)**.
 
-### FOR ANY PROBLEMS, contact me:
-
-* Reddit: [https://reddit.com/r/ilyamiro1](https://reddit.com/r/ilyamiro1)
-* X/Twitter: [https://twitter.com/ilyamirox](https://twitter.com/ilyamirox)
-* Discord: [https://discord.com/users/ilyamiro](https://discord.com/users/ilyamiro)
-* Email: [ilyamiro.work@gmail.com](mailto:ilyamiro.work@gmail.com)
-* Telegram: [https://t.me/sacrificeit](https://t.me/sacrificeit)
-
-
 ## Previews of my desktop
 
 ---
