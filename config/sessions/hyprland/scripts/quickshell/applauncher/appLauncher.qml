@@ -204,9 +204,12 @@ Item {
         property real targetListHeight: appModel.count === 0 ? 0 : Math.min((appModel.count * itemHeight) + ((appModel.count - 1) * listSpacing), maxListHeight)
         property real targetMargins: appModel.count > 0 ? window.s(20) : 0
 
+        property real favoritesBarHeight: (searchInput.text === "" && Config.favoritesData !== undefined && Config.favoritesData.length > 0) ? window.s(85) : 0
+
         // Smoothly animated properties for elegant container morphing
         property real animatedListHeight: targetListHeight
         property real animatedMargins: targetMargins
+        property real animatedFavHeight: favoritesBarHeight
 
         Behavior on animatedListHeight { 
             NumberAnimation { duration: 500; easing.type: Easing.OutExpo } 
@@ -214,8 +217,11 @@ Item {
         Behavior on animatedMargins { 
             NumberAnimation { duration: 500; easing.type: Easing.OutExpo } 
         }
+        Behavior on animatedFavHeight {
+            NumberAnimation { duration: 500; easing.type: Easing.OutExpo }
+        }
         
-        height: searchHeight + separatorHeight + animatedMargins + animatedListHeight
+        height: searchHeight + separatorHeight + animatedFavHeight + animatedMargins + animatedListHeight
 
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
@@ -325,6 +331,107 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: mainBg.separatorHeight
                 color: Qt.rgba(window.surface1.r, window.surface1.g, window.surface1.b, 0.5)
+            }
+
+            // --- FAVORITES BAR ---
+            Rectangle {
+                id: favoritesBar
+                Layout.fillWidth: true
+                Layout.preferredHeight: mainBg.animatedFavHeight
+                visible: mainBg.favoritesBarHeight > 0
+                color: "transparent"
+                clip: true
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: window.s(10)
+                    anchors.leftMargin: window.s(15)
+                    anchors.rightMargin: window.s(15)
+                    spacing: window.s(5)
+
+                    Text {
+                        text: "Favorites"
+                        font.family: "JetBrains Mono"
+                        font.pixelSize: window.s(11)
+                        font.weight: Font.Bold
+                        color: window.mauve
+                        opacity: 0.8
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: window.s(10)
+
+                        Repeater {
+                            model: Config.favoritesData
+                            delegate: Item {
+                                width: window.s(56)
+                                height: window.s(56)
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: window.s(10)
+                                    color: favMa.containsMouse ? window.surface1 : window.surface0
+                                    border.color: favMa.containsMouse ? window.mauve : "transparent"
+                                    border.width: 1
+                                    Behavior on color { ColorAnimation { duration: 180 } }
+                                    Behavior on border.color { ColorAnimation { duration: 180 } }
+
+                                    Item {
+                                        id: favIconItem
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        anchors.top: parent.top
+                                        anchors.topMargin: window.s(6)
+                                        width: window.s(24)
+                                        height: window.s(24)
+                                        Image {
+                                            anchors.fill: parent
+                                            source: "image://icon/application-x-executable"
+                                            sourceSize: Qt.size(48, 48)
+                                            fillMode: Image.PreserveAspectFit
+                                            visible: favIconReal.status !== Image.Ready
+                                        }
+                                        Image {
+                                            id: favIconReal
+                                            anchors.fill: parent
+                                            source: modelData.icon ? (modelData.icon.startsWith("/") ? "file://" + modelData.icon : "image://icon/" + modelData.icon) : ""
+                                            sourceSize: Qt.size(48, 48)
+                                            fillMode: Image.PreserveAspectFit
+                                        }
+                                    }
+
+                                    Text {
+                                        anchors.top: favIconItem.bottom
+                                        anchors.topMargin: window.s(4)
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.leftMargin: window.s(4)
+                                        anchors.rightMargin: window.s(4)
+                                        text: modelData.name
+                                        font.family: "JetBrains Mono"
+                                        font.pixelSize: window.s(8)
+                                        color: window.text
+                                        horizontalAlignment: Text.AlignHCenter
+                                        elide: Text.ElideRight
+                                        maximumLineCount: 1
+                                    }
+
+                                    MouseArea {
+                                        id: favMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            launchApp(modelData.exec);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+                }
             }
 
             // --- APPLICATION LIST ---
@@ -496,16 +603,30 @@ Item {
                                 }
                                 Behavior on color { ColorAnimation { duration: 300; easing.type: Easing.OutExpo } }
 
-                                Image {
+                                Item {
                                     anchors.centerIn: parent
                                     width: window.s(24)
                                     height: window.s(24)
-                                    source: model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon
-                                    sourceSize: Qt.size(64, 64)
-                                    fillMode: Image.PreserveAspectFit
-                                    asynchronous: true
-                                    smooth: true
-                                    mipmap: true
+                                    Image {
+                                        anchors.fill: parent
+                                        source: "image://icon/application-x-executable"
+                                        sourceSize: Qt.size(64, 64)
+                                        fillMode: Image.PreserveAspectFit
+                                        visible: appIconReal.status !== Image.Ready
+                                        smooth: true
+                                        mipmap: true
+                                    }
+                                    Image {
+                                        id: appIconReal
+                                        anchors.fill: parent
+                                        source: model.icon ? (model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon) : ""
+                                        sourceSize: Qt.size(64, 64)
+                                        fillMode: Image.PreserveAspectFit
+                                        asynchronous: true
+                                        smooth: true
+                                        mipmap: true
+                                        visible: status === Image.Ready
+                                    }
                                 }
                                 
                                 // The Matugen Tint Overlay

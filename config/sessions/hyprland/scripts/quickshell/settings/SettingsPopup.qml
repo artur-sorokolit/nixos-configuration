@@ -200,15 +200,16 @@ Item {
     }
 
     property int currentTab: 0
-    property var tabNames: ["General", "Weather", "Keybinds", "Monitors", "Startup"]
-    property var tabIcons: ["󰒓", "󰖐", "󰌌", "󰍹", "󰐥"]
-    property var tabColors: ["teal", "blue", "peach", "green", "mauve"]
+    property var tabNames: ["General", "Weather", "Keybinds", "Monitors", "Startup", "Favorites"]
+    property var tabIcons: ["󰒓", "󰖐", "󰌌", "󰍹", "󰐥", ""]
+    property var tabColors: ["teal", "blue", "peach", "green", "mauve", "yellow"]
 
     property bool tab0Loaded: false
     property bool tab1Loaded: false
     property bool tab2Loaded: false
     property bool tab3Loaded: false
     property bool tab4Loaded: false
+    property bool tab5Loaded: false
 
     onCurrentTabChanged: {
         root.clearHighlight();
@@ -217,6 +218,7 @@ Item {
         else if (currentTab === 2) root.tab2Loaded = true;
         else if (currentTab === 3) root.tab3Loaded = true;
         else if (currentTab === 4) root.tab4Loaded = true;
+        else if (currentTab === 5) root.tab5Loaded = true;
     }
 
     onTab3LoadedChanged: {
@@ -244,12 +246,12 @@ Item {
 
     Keys.onTabPressed: (event) => {
         if (root.isSearchMode) return;
-        root.currentTab = (root.currentTab + 1) % 5;
+        root.currentTab = (root.currentTab + 1) % 6;
         event.accepted = true;
     }
     Keys.onBacktabPressed: (event) => {
         if (root.isSearchMode) return;
-        root.currentTab = (root.currentTab + 4) % 5;
+        root.currentTab = (root.currentTab + 5) % 6;
         event.accepted = true;
     }
 
@@ -557,6 +559,8 @@ Item {
     }
 
     ListModel { id: dynamicStartupModel }
+    property var allAppsList: []
+    ListModel { id: settingsAppsModel }
 
     Connections {
         target: Config
@@ -1845,6 +1849,177 @@ Item {
                             }
                         }
                     }
+
+                    // ── Box 7: Cursor theme ──────────────────────────────────
+                    Rectangle {
+                        id: boxCursor
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: cursorCol.implicitHeight + root.s(32)
+                        radius: root.s(12)
+                        color: root.surface0
+                        border.color: cursorBoxMa.containsMouse ? root.mauve : root.surface1
+                        border.width: 1
+                        Behavior on border.color { ColorAnimation { duration: 220; easing.type: Easing.OutExpo } }
+
+                        MouseArea { id: cursorBoxMa; anchors.fill: parent; hoverEnabled: true; z: -1 }
+
+                        ListModel { id: cursorThemesModel }
+
+                        function refreshCursors() {
+                            cursorListProc.running = false;
+                            cursorListProc.running = true;
+                        }
+
+                        Process {
+                            id: cursorListProc
+                            command: ["bash", Quickshell.env("HOME") + "/.config/hypr/scripts/quickshell/cursor/cursor_manager.sh", "list", "48"]
+                            running: false
+                            stdout: StdioCollector {
+                                onStreamFinished: {
+                                    try {
+                                        let arr = JSON.parse(this.text.trim() || "[]");
+                                        cursorThemesModel.clear();
+                                        for (let i = 0; i < arr.length; i++) {
+                                            cursorThemesModel.append({ name: arr[i].name, preview: arr[i].preview || "" });
+                                        }
+                                    } catch (e) { console.log("cursor list parse error:", e); }
+                                }
+                            }
+                        }
+
+                        Process {
+                            id: cursorImportProc
+                            command: ["bash", Quickshell.env("HOME") + "/.config/hypr/scripts/quickshell/cursor/cursor_manager.sh", "import"]
+                            running: false
+                            onRunningChanged: { if (!running) boxCursor.refreshCursors(); }
+                        }
+
+                        Component.onCompleted: refreshCursors()
+
+                        ColumnLayout {
+                            id: cursorCol
+                            anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; anchors.margins: root.s(16)
+                            spacing: root.s(12)
+
+                            // Header: icon + title + size stepper
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: root.s(14)
+                                Item {
+                                    Layout.preferredWidth: root.s(22); Layout.alignment: Qt.AlignVCenter
+                                    Text { anchors.centerIn: parent; text: "󰳽"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.mauve }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter; spacing: root.s(3)
+                                    Text { text: "Cursor"; font.family: "Inter"; font.weight: Font.Medium; font.pixelSize: root.s(14); color: root.text; Layout.fillWidth: true }
+                                    Text {
+                                        text: (Config.cursorTheme && Config.cursorTheme.length ? Config.cursorTheme : "System default") + " · " + Config.cursorSize + "px"
+                                        font.family: "Inter"; font.pixelSize: root.s(11); color: Qt.alpha(root.subtext0, 0.7); Layout.fillWidth: true; elide: Text.ElideRight
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight; spacing: root.s(10)
+                                    Rectangle {
+                                        width: root.s(28); height: root.s(28); radius: root.s(6)
+                                        color: curMinusMa.pressed ? Qt.alpha(root.mauve, 0.3) : (curMinusMa.containsMouse ? Qt.alpha(root.mauve, 0.2) : Qt.alpha(root.mauve, 0.12))
+                                        scale: curMinusMa.pressed ? 0.9 : (curMinusMa.containsMouse ? 1.08 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutQuart } }
+                                        Text { anchors.centerIn: parent; text: "-"; font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: root.s(15); color: root.mauve }
+                                        MouseArea {
+                                            id: curMinusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                let ns = Math.max(12, Config.cursorSize - 4);
+                                                if (Config.cursorTheme && Config.cursorTheme.length) Config.applyCursor(Config.cursorTheme, ns);
+                                                else Config.cursorSize = ns;
+                                            }
+                                        }
+                                    }
+                                    Text { text: Config.cursorSize + "px"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.mauve; Layout.minimumWidth: root.s(40); horizontalAlignment: Text.AlignHCenter }
+                                    Rectangle {
+                                        width: root.s(28); height: root.s(28); radius: root.s(6)
+                                        color: curPlusMa.pressed ? Qt.alpha(root.mauve, 0.3) : (curPlusMa.containsMouse ? Qt.alpha(root.mauve, 0.2) : Qt.alpha(root.mauve, 0.12))
+                                        scale: curPlusMa.pressed ? 0.9 : (curPlusMa.containsMouse ? 1.08 : 1.0)
+                                        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutQuart } }
+                                        Text { anchors.centerIn: parent; text: "+"; font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: root.s(15); color: root.mauve }
+                                        MouseArea {
+                                            id: curPlusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                let ns = Math.min(64, Config.cursorSize + 4);
+                                                if (Config.cursorTheme && Config.cursorTheme.length) Config.applyCursor(Config.cursorTheme, ns);
+                                                else Config.cursorSize = ns;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Preview gallery of installed themes
+                            ListView {
+                                id: cursorGallery
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: root.s(96)
+                                orientation: ListView.Horizontal
+                                spacing: root.s(10)
+                                clip: true
+                                model: cursorThemesModel
+                                boundsBehavior: Flickable.StopAtBounds
+                                delegate: Rectangle {
+                                    width: root.s(92); height: root.s(92); radius: root.s(10)
+                                    property bool selected: Config.cursorTheme === model.name
+                                    color: selected ? Qt.alpha(root.mauve, 0.18) : root.surface1
+                                    border.color: selected ? root.mauve : (cardMa.containsMouse ? Qt.alpha(root.mauve, 0.5) : "transparent")
+                                    border.width: selected ? 2 : 1
+                                    Behavior on border.color { ColorAnimation { duration: 180 } }
+                                    ColumnLayout {
+                                        anchors.fill: parent; anchors.margins: root.s(8); spacing: root.s(4)
+                                        Item {
+                                            Layout.fillWidth: true; Layout.fillHeight: true
+                                            Image {
+                                                anchors.centerIn: parent
+                                                width: root.s(40); height: root.s(40)
+                                                fillMode: Image.PreserveAspectFit
+                                                smooth: true; cache: false
+                                                source: model.preview ? "file://" + model.preview : ""
+                                                visible: model.preview.length > 0
+                                            }
+                                            Text {
+                                                anchors.centerIn: parent; visible: model.preview.length === 0
+                                                text: "󰳽"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(26); color: root.subtext0
+                                            }
+                                        }
+                                        Text {
+                                            text: model.name; Layout.fillWidth: true
+                                            font.family: "Inter"; font.pixelSize: root.s(9)
+                                            color: selected ? root.mauve : root.subtext0
+                                            horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
+                                        }
+                                    }
+                                    MouseArea {
+                                        id: cardMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: Config.applyCursor(model.name, Config.cursorSize)
+                                    }
+                                }
+                            }
+
+                            // Import button
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: root.s(38)
+                                radius: root.s(9)
+                                color: importMa.pressed ? Qt.alpha(root.mauve, 0.28) : (importMa.containsMouse ? Qt.alpha(root.mauve, 0.18) : Qt.alpha(root.mauve, 0.10))
+                                border.color: Qt.alpha(root.mauve, 0.5); border.width: 1
+                                Behavior on color { ColorAnimation { duration: 180 } }
+                                RowLayout {
+                                    anchors.centerIn: parent; spacing: root.s(8)
+                                    Text { text: "󰇚"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(15); color: root.mauve }
+                                    Text { text: "Import downloaded cursor…"; font.family: "Inter"; font.weight: Font.Medium; font.pixelSize: root.s(12); color: root.mauve }
+                                }
+                                MouseArea {
+                                    id: importMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: { cursorImportProc.running = false; cursorImportProc.running = true; }
+                                }
+                            }
+                        }
+                    }
                 }
             }        
         }
@@ -2884,7 +3059,7 @@ Item {
                     // Save button
                     Rectangle {
                         id: headerSaveBtn
-                        visible: root.currentTab !== 2 && root.currentTab !== 4 && !root.isSearchMode
+                        visible: root.currentTab !== 2 && root.currentTab !== 4 && root.currentTab !== 5 && !root.isSearchMode
                         opacity: visible ? 1.0 : 0.0
                         Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
 
@@ -3147,12 +3322,14 @@ Item {
                             property color c2: root.peach
                             property color c3: root.green
                             property color c4: root.mauve
+                            property color c5: root.yellow
                             property color targetColor: {
                                 if (root.currentTab === 0) return c0;
                                 if (root.currentTab === 1) return c1;
                                 if (root.currentTab === 2) return c2;
                                 if (root.currentTab === 3) return c3;
-                                return c4;
+                                if (root.currentTab === 4) return c4;
+                                return c5;
                             }
                             color: targetColor
                             Behavior on color { ColorAnimation { duration: 300; easing.type: Easing.OutExpo } }
@@ -3550,6 +3727,16 @@ Item {
                         opacity: visible ? 1.0 : 0.0
                         Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
                     }
+
+                    Loader {
+                        id: favoritesLoader
+                        anchors.fill: parent
+                        active: root.tab5Loaded && Config.dataReady
+                        sourceComponent: favoritesTabComponent
+                        visible: root.currentTab === 5 && !root.isSearchMode
+                        opacity: visible ? 1.0 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
+                    }
                 }
             }
         }
@@ -3756,6 +3943,324 @@ Item {
                                                     }
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    Component {
+        id: favoritesTabComponent
+        Item {
+            id: favoritesTabRoot
+
+            Process {
+                id: favoritesAppFetcher
+                running: root.tab5Loaded
+                command: ["bash", "-c", "python3 " + Config.qsScriptsDir + "/applauncher/app_fetcher.py"]
+                stdout: StdioCollector {
+                    onStreamFinished: {
+                        try {
+                            if (this.text && this.text.trim().length > 0) {
+                                let parsed = JSON.parse(this.text);
+                                root.allAppsList = parsed;
+                                favoritesTabRoot.filterApps("");
+                            }
+                        } catch(e) {
+                            console.log("Error fetching apps in SettingsPopup:", e);
+                        }
+                    }
+                }
+            }
+
+            function filterApps(query) {
+                settingsAppsModel.clear();
+                let q = query.toLowerCase().trim();
+                for (let i = 0; i < root.allAppsList.length; i++) {
+                    let app = root.allAppsList[i];
+                    if (q === "" || app.name.toLowerCase().includes(q) || app.exec.toLowerCase().includes(q)) {
+                        settingsAppsModel.append({
+                            name: app.name || "",
+                            icon: app.icon || "",
+                            exec: app.exec || ""
+                        });
+                    }
+                }
+            }
+
+            Flickable {
+                id: favFlickable
+                anchors.fill: parent
+                contentWidth: width
+                contentHeight: favColLayout.implicitHeight + root.s(40)
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
+
+                ColumnLayout {
+                    id: favColLayout
+                    width: parent.width
+                    spacing: root.s(12)
+
+                    Text {
+                        text: "Current Favorites"
+                        font.family: "JetBrains Mono"
+                        font.weight: Font.Bold
+                        font.pixelSize: root.s(14)
+                        color: root.text
+                    }
+
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: root.s(10)
+                        visible: Config.favoritesData !== undefined && Config.favoritesData.length > 0
+
+                        Repeater {
+                            model: Config.favoritesData
+                            delegate: Rectangle {
+                                width: root.s(90)
+                                height: root.s(80)
+                                radius: root.s(8)
+                                color: favTileHover.containsMouse ? root.surface1 : root.surface0
+                                border.color: root.surface1
+                                border.width: 1
+
+                                Behavior on color { ColorAnimation { duration: 150 } }
+
+                                Item {
+                                    id: favTileIcon
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.top: parent.top
+                                    anchors.topMargin: root.s(10)
+                                    width: root.s(28)
+                                    height: root.s(28)
+                                    Image {
+                                        anchors.fill: parent
+                                        source: "image://icon/application-x-executable"
+                                        sourceSize: Qt.size(48, 48)
+                                        fillMode: Image.PreserveAspectFit
+                                        visible: favTileIconReal.status !== Image.Ready
+                                    }
+                                    Image {
+                                        id: favTileIconReal
+                                        anchors.fill: parent
+                                        source: modelData.icon ? (modelData.icon.startsWith("/") ? "file://" + modelData.icon : "image://icon/" + modelData.icon) : ""
+                                        sourceSize: Qt.size(48, 48)
+                                        fillMode: Image.PreserveAspectFit
+                                    }
+                                }
+
+                                Text {
+                                    anchors.top: favTileIcon.bottom
+                                    anchors.topMargin: root.s(4)
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.leftMargin: root.s(4)
+                                    anchors.rightMargin: root.s(4)
+                                    text: modelData.name
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: root.s(8)
+                                    font.weight: Font.Bold
+                                    color: root.text
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
+                                }
+
+                                Text {
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: root.s(4)
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "✕"
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: root.s(9)
+                                    color: favTileHover.containsMouse ? root.red : root.overlay0
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                }
+
+                                MouseArea {
+                                    id: favTileHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        let updated = [];
+                                        for (let f of Config.favoritesData) {
+                                            if (f.exec !== modelData.exec) {
+                                                updated.push(f);
+                                            }
+                                        }
+                                        Config.saveAllFavorites(updated);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "No favorites added yet. Search below to add."
+                        font.family: "JetBrains Mono"
+                        font.pixelSize: root.s(11)
+                        color: root.subtext0
+                        visible: Config.favoritesData === undefined || Config.favoritesData.length === 0
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: root.surface2
+                    }
+
+                    Text {
+                        text: "All Applications"
+                        font.family: "JetBrains Mono"
+                        font.weight: Font.Bold
+                        font.pixelSize: root.s(14)
+                        color: root.text
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.s(32)
+                        radius: root.s(6)
+                        color: root.surface0
+                        border.color: searchInputFocus.activeFocus ? root.yellow : root.surface2
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: root.s(10)
+                            anchors.rightMargin: root.s(10)
+
+                            TextInput {
+                                id: searchInputFocus
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                verticalAlignment: TextInput.AlignVCenter
+                                font.family: "JetBrains Mono"
+                                font.pixelSize: root.s(12)
+                                color: root.text
+                                clip: true
+                                selectByMouse: true
+                                onTextChanged: favoritesTabRoot.filterApps(text)
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Search applications to add to favorites..."
+                                    color: Qt.alpha(root.subtext0, 0.45)
+                                    visible: !parent.text && !parent.activeFocus
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: root.s(12)
+                                }
+                            }
+                        }
+                    }
+
+                    ListView {
+                        id: appsListView
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: implicitHeight
+                        implicitHeight: settingsAppsModel.count * root.s(46) + root.s(20)
+                        model: settingsAppsModel
+                        clip: true
+                        spacing: root.s(6)
+                        interactive: false
+
+                        delegate: Rectangle {
+                            width: appsListView.width
+                            height: root.s(40)
+                            radius: root.s(6)
+                            color: root.surface0
+                            border.color: root.surface1
+                            border.width: 1
+
+                            property bool isFavorite: {
+                                if (Config.favoritesData === undefined) return false;
+                                for (let f of Config.favoritesData) {
+                                    if (f.exec === model.exec) return true;
+                                }
+                                return false;
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: root.s(10)
+                                anchors.rightMargin: root.s(10)
+                                spacing: root.s(10)
+
+                                Item {
+                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredHeight: root.s(24)
+                                    Layout.alignment: Qt.AlignVCenter
+                                    Image {
+                                        anchors.fill: parent
+                                        source: "image://icon/application-x-executable"
+                                        sourceSize: Qt.size(48, 48)
+                                        fillMode: Image.PreserveAspectFit
+                                        visible: appListIconReal.status !== Image.Ready
+                                    }
+                                    Image {
+                                        id: appListIconReal
+                                        anchors.fill: parent
+                                        source: model.icon ? (model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon) : ""
+                                        sourceSize: Qt.size(48, 48)
+                                        fillMode: Image.PreserveAspectFit
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 0
+
+                                    Text {
+                                        text: model.name
+                                        font.family: "JetBrains Mono"
+                                        font.pixelSize: root.s(11)
+                                        font.weight: Font.Bold
+                                        color: root.text
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        text: model.exec
+                                        font.family: "JetBrains Mono"
+                                        font.pixelSize: root.s(8)
+                                        color: root.subtext0
+                                        elide: Text.ElideRight
+                                    }
+                                }
+
+                                Text {
+                                    text: isFavorite ? "" : ""
+                                    font.family: "Iosevka Nerd Font"
+                                    font.pixelSize: root.s(16)
+                                    color: isFavorite ? root.yellow : root.subtext0
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            let updated = [];
+                                            let found = false;
+                                            if (Config.favoritesData !== undefined) {
+                                                for (let f of Config.favoritesData) {
+                                                    if (f.exec === model.exec) {
+                                                        found = true;
+                                                    } else {
+                                                        updated.push(f);
+                                                    }
+                                                }
+                                            }
+                                            if (!found) {
+                                                updated.push({ name: model.name, icon: model.icon, exec: model.exec });
+                                            }
+                                            Config.saveAllFavorites(updated);
                                         }
                                     }
                                 }

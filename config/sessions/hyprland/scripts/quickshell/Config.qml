@@ -89,6 +89,8 @@ Item {
     property string wallpaperDir: Quickshell.env("WALLPAPER_DIR") || (homeDir + "/Pictures/Wallpapers")
     property string language: ""
     property string kbOptions: "grp:alt_shift_toggle"
+    property string cursorTheme: ""
+    property int cursorSize: 24
 
     property string weatherUnit: "metric"
     property string weatherApiKey: ""
@@ -99,6 +101,9 @@ Item {
 
     property var startupData: []
     signal startupLoaded()
+
+    property var favoritesData: []
+    signal favoritesLoaded()
 
     // =========================================================================
     // Settings Save Functions
@@ -111,7 +116,9 @@ Item {
             "wallpaperDir": config.wallpaperDir,
             "language": config.language,
             "kbOptions": config.kbOptions,
-            "workspaceCount": config.workspaceCount
+            "workspaceCount": config.workspaceCount,
+            "cursorTheme": config.cursorTheme,
+            "cursorSize": config.cursorSize
         };
 
         config.updateJsonBulk(configObj);
@@ -121,6 +128,14 @@ Item {
             sh(`qs -p "${qsScriptsDir}/TopBar.qml" ipc call topbar queueReload`);
             config.initialWorkspaceCount = config.workspaceCount;
         }
+    }
+
+    // Apply a cursor theme live (Hyprland + GTK + XWayland) and persist it.
+    function applyCursor(theme, size) {
+        config.cursorTheme = theme;
+        config.cursorSize = size;
+        let safeTheme = theme.replace(/'/g, "'\\''");
+        config.sh(`bash '${qsScriptsDir}/cursor/cursor_manager.sh' apply '${safeTheme}' ${size}`);
     }
 
     function saveWeatherConfig() {
@@ -145,6 +160,12 @@ Item {
         config.startupData = startupArray;
         config.setSetting("startup", startupArray);
         sh("notify-send 'Quickshell' 'Startup entries saved!'");
+    }
+
+    function saveAllFavorites(favoritesArray) {
+        config.favoritesData = favoritesArray;
+        config.setSetting("favorites", favoritesArray);
+        sh("notify-send 'Quickshell' 'Favorites saved successfully!'");
     }
 
     // =========================================================================
@@ -227,7 +248,7 @@ Item {
             if (m.transform !== 0) monitorStr += ",transform," + m.transform;
             let jsonArr = [{ name: m.name, resW: m.resW, resH: m.resH, rate: parseInt(m.rate), x: 0, y: 0, scale: m.sysScale, transform: m.transform }];
             config.setSetting("monitors", jsonArr);
-            config.sh("hyprctl keyword monitor " + monitorStr + " ; swww kill ; sleep 0.2 ; swww-daemon &");
+            config.sh("hyprctl keyword monitor " + monitorStr + " ; awww kill ; sleep 0.2 ; awww-daemon &");
             Quickshell.execDetached(["notify-send", "Display Update", "Applied: " + m.resW + "x" + m.resH + " @ " + m.rate + "Hz"]);
         } else {
             let rects = [];
@@ -277,7 +298,7 @@ Item {
                 jsonArr.push({ name: r.name, resW: r.resW, resH: r.resH, rate: parseInt(r.rate), x: r.x, y: r.y, scale: r.sysScale, transform: r.transform });
             }
             config.setSetting("monitors", jsonArr);
-            config.sh("hyprctl --batch '" + batchCmds.join(" ; ") + "' ; swww kill ; sleep 0.2 ; swww-daemon &");
+            config.sh("hyprctl --batch '" + batchCmds.join(" ; ") + "' ; awww kill ; sleep 0.2 ; awww-daemon &");
             Quickshell.execDetached(["notify-send", "Display Update", "Applied layout for: " + summaryString.trim()]);
         }
     }
@@ -376,8 +397,10 @@ Item {
                         if (config.rawSettings.kbOptions !== undefined) config.kbOptions = config.rawSettings.kbOptions;
                         if (config.rawSettings.workspaceCount !== undefined) {
                             config.workspaceCount = config.rawSettings.workspaceCount;
-                            config.initialWorkspaceCount = config.rawSettings.workspaceCount; 
+                            config.initialWorkspaceCount = config.rawSettings.workspaceCount;
                         }
+                        if (config.rawSettings.cursorTheme !== undefined) config.cursorTheme = config.rawSettings.cursorTheme;
+                        if (config.rawSettings.cursorSize !== undefined) config.cursorSize = config.rawSettings.cursorSize;
                         
                         // Map Keybinds
                         if (config.rawSettings.keybinds !== undefined && Array.isArray(config.rawSettings.keybinds)) {
@@ -407,19 +430,37 @@ Item {
                         } else {
                             config.startupData = [];
                         }
+
+                        // Map Favorites
+                        if (config.rawSettings.favorites !== undefined && Array.isArray(config.rawSettings.favorites)) {
+                            let tempFavorites = [];
+                            for (let f of config.rawSettings.favorites) {
+                                tempFavorites.push({
+                                    name: f.name || "",
+                                    icon: f.icon || "",
+                                    exec: f.exec || ""
+                                });
+                            }
+                            config.favoritesData = tempFavorites;
+                        } else {
+                            config.favoritesData = [];
+                        }
                     } else {
                         config.saveAppSettings();
                         config.keybindsData = [];
                         config.saveAllKeybinds([]);
                         config.startupData = [];
+                        config.favoritesData = [];
                     }
                 } catch (e) {
                     console.log("Error parsing global settings:", e);
                     config.keybindsData = [];
                     config.startupData = [];
+                    config.favoritesData = [];
                 }
                 config.keybindsLoaded();
                 config.startupLoaded();
+                config.favoritesLoaded();
                 config.dataReady = true;
             }
         }

@@ -9,3 +9,7 @@ commit.txt
 config/programs/eww/hotfile-eww/*
 
 config/sessions/hyprland/scripts/quickshell/quickactions/Todo.qml
+*.bak
+*.bak-cursor
+__pycache__/
+settings.json.bak
