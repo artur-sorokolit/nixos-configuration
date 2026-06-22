@@ -1,3 +1,25 @@
+# 🍴 Personal fork — Arch / CachyOS
+
+This is my personal fork of [**ilyamiro/nixos-configuration**](https://github.com/ilyamiro/nixos-configuration),
+adapted to run on **CachyOS (Arch-based)** rather than NixOS. It's primarily a backup of my live
+`~/.config/hypr/` (mirrored into `config/sessions/hyprland/`).
+
+**My additions on top of upstream:**
+- **Cursor settings** — a cursor manager built into the Quickshell settings (General tab): theme
+  preview gallery, size stepper, and an "Import downloaded cursor" button.
+  Lives in `scripts/quickshell/cursor/` (`render_cursor.py`, `cursor_manager.sh`).
+- **Wallpaper fixes** — tweaks to `wallpaper/WallpaperPicker.qml` and `wallpaper/matugen_reload.sh`.
+- **Favorite applications** — my own favourites configured in `settings.json`.
+- Misc local scripts: `settings_watcher.sh`, `init.sh`, `layout_switcher.sh`,
+  `focus_next_monitor.sh`, `update_notifier.sh`, and `BatteryPopupAlt.qml`.
+
+> [!NOTE]
+> The OpenWeather API key (`scripts/quickshell/calendar/.env`) is intentionally **not** committed (gitignored).
+
+All credit for the original configuration goes to [@ilyamiro](https://github.com/ilyamiro).
+
+---
+
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ilyamiro)
 
 # Big announcement to all of my users! 
