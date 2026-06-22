@@ -21,6 +21,15 @@ mkdir -p "$CONF_DIR" "$TMPL_DIR" "$(dirname "$SETTINGS_FILE")" "$(dirname "$ENV_
 
 CACHE_DIR="$HOME/.cache/settings_watcher"
 mkdir -p "$CACHE_DIR"
+REL_CACHE="$CACHE_DIR/relevant.hash"
+
+# Hash of ONLY the settings.json keys that actually feed a generated Hyprland config.
+# Runtime-only keys (favorites, cursorTheme/cursorSize, uiScale, topbarHelpIcon, weather, …)
+# are deliberately excluded so they never reach compile_settings / hyprctl reload.
+relevant_hash() {
+    jq -S '{language, kbOptions, wallpaperDir, openGuideAtStartup, startup, keybinds, monitors, hardwareEnvs}' \
+        "$SETTINGS_FILE" 2>/dev/null | md5sum | cut -d' ' -f1
+}
 
 compile_settings() {
     echo "Regenerating configurations from templates..."
@@ -121,6 +130,7 @@ compile_settings() {
 # If called with --compile, execute once and exit (used by install.sh)
 if [[ "$1" == "--compile" ]]; then
     compile_settings
+    relevant_hash > "$REL_CACHE"
     exit 0
 fi
 
@@ -135,7 +145,16 @@ inotifywait -m -q -e close_write,moved_to --format '%w%f' "$(dirname "$SETTINGS_
         # Prevent race condition where jq reads empty or partial file during rename/mv
         sleep 0.05
         if jq empty "$SETTINGS_FILE" 2>/dev/null; then
-            compile_settings
+            # Only recompile when a config-affecting key changed. A favorites/cursor/uiScale
+            # write leaves this hash untouched, so it can never trigger hyprctl reload (which
+            # would otherwise re-apply monitors and scramble the display layout).
+            NEW_REL=$(relevant_hash)
+            if [[ "$NEW_REL" != "$(cat "$REL_CACHE" 2>/dev/null)" ]]; then
+                echo "$NEW_REL" > "$REL_CACHE"
+                compile_settings
+            else
+                echo "Only runtime-only settings changed (favorites/cursor/uiScale/…); skipping recompile."
+            fi
         else
             echo "Warning: settings.json is not valid JSON, skipping compile."
         fi

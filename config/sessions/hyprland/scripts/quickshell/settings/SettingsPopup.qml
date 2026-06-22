@@ -3979,11 +3979,23 @@ Item {
                 }
             }
 
+            property string currentQuery: ""
+
+            function isFav(execStr) {
+                if (Config.favoritesData === undefined) return false;
+                for (let f of Config.favoritesData) {
+                    if (f.exec === execStr) return true;
+                }
+                return false;
+            }
+
             function filterApps(query) {
+                favoritesTabRoot.currentQuery = query;
                 settingsAppsModel.clear();
                 let q = query.toLowerCase().trim();
                 for (let i = 0; i < root.allAppsList.length; i++) {
                     let app = root.allAppsList[i];
+                    if (favoritesTabRoot.isFav(app.exec)) continue; // already a favorite — hide from the grid
                     if (q === "" || app.name.toLowerCase().includes(q) || app.exec.toLowerCase().includes(q)) {
                         settingsAppsModel.append({
                             name: app.name || "",
@@ -3991,6 +4003,14 @@ Item {
                             exec: app.exec || ""
                         });
                     }
+                }
+            }
+
+            // Re-filter whenever favorites change so toggled apps appear/disappear instantly
+            Connections {
+                target: Config
+                function onFavoritesDataChanged() {
+                    favoritesTabRoot.filterApps(favoritesTabRoot.currentQuery);
                 }
             }
 
@@ -4162,51 +4182,38 @@ Item {
                         }
                     }
 
-                    ListView {
-                        id: appsListView
+                    Flow {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: implicitHeight
-                        implicitHeight: settingsAppsModel.count * root.s(46) + root.s(20)
-                        model: settingsAppsModel
-                        clip: true
-                        spacing: root.s(6)
-                        interactive: false
+                        spacing: root.s(10)
 
-                        delegate: Rectangle {
-                            width: appsListView.width
-                            height: root.s(40)
-                            radius: root.s(6)
-                            color: root.surface0
-                            border.color: root.surface1
-                            border.width: 1
-
-                            property bool isFavorite: {
-                                if (Config.favoritesData === undefined) return false;
-                                for (let f of Config.favoritesData) {
-                                    if (f.exec === model.exec) return true;
-                                }
-                                return false;
-                            }
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: root.s(10)
-                                anchors.rightMargin: root.s(10)
-                                spacing: root.s(10)
+                        Repeater {
+                            model: settingsAppsModel
+                            delegate: Rectangle {
+                                width: root.s(90)
+                                height: root.s(80)
+                                radius: root.s(8)
+                                color: appCardHover.containsMouse ? root.surface1 : root.surface0
+                                border.color: appCardHover.containsMouse ? root.yellow : root.surface1
+                                border.width: 1
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
 
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
-                                    Layout.preferredHeight: root.s(24)
-                                    Layout.alignment: Qt.AlignVCenter
+                                    id: appCardIcon
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.top: parent.top
+                                    anchors.topMargin: root.s(10)
+                                    width: root.s(28)
+                                    height: root.s(28)
                                     Image {
                                         anchors.fill: parent
                                         source: "image://icon/application-x-executable"
                                         sourceSize: Qt.size(48, 48)
                                         fillMode: Image.PreserveAspectFit
-                                        visible: appListIconReal.status !== Image.Ready
+                                        visible: appCardIconReal.status !== Image.Ready
                                     }
                                     Image {
-                                        id: appListIconReal
+                                        id: appCardIconReal
                                         anchors.fill: parent
                                         source: model.icon ? (model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon) : ""
                                         sourceSize: Qt.size(48, 48)
@@ -4214,54 +4221,43 @@ Item {
                                     }
                                 }
 
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 0
-
-                                    Text {
-                                        text: model.name
-                                        font.family: "JetBrains Mono"
-                                        font.pixelSize: root.s(11)
-                                        font.weight: Font.Bold
-                                        color: root.text
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        text: model.exec
-                                        font.family: "JetBrains Mono"
-                                        font.pixelSize: root.s(8)
-                                        color: root.subtext0
-                                        elide: Text.ElideRight
-                                    }
+                                Text {
+                                    anchors.top: appCardIcon.bottom
+                                    anchors.topMargin: root.s(4)
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.leftMargin: root.s(4)
+                                    anchors.rightMargin: root.s(4)
+                                    text: model.name
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: root.s(8)
+                                    font.weight: Font.Bold
+                                    color: root.text
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
                                 }
 
                                 Text {
-                                    text: isFavorite ? "" : ""
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: root.s(16)
-                                    color: isFavorite ? root.yellow : root.subtext0
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: root.s(4)
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "＋"
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: root.s(10)
+                                    color: root.yellow
+                                    visible: appCardHover.containsMouse
+                                }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            let updated = [];
-                                            let found = false;
-                                            if (Config.favoritesData !== undefined) {
-                                                for (let f of Config.favoritesData) {
-                                                    if (f.exec === model.exec) {
-                                                        found = true;
-                                                    } else {
-                                                        updated.push(f);
-                                                    }
-                                                }
-                                            }
-                                            if (!found) {
-                                                updated.push({ name: model.name, icon: model.icon, exec: model.exec });
-                                            }
-                                            Config.saveAllFavorites(updated);
-                                        }
+                                MouseArea {
+                                    id: appCardHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        let updated = (Config.favoritesData !== undefined) ? Config.favoritesData.slice() : [];
+                                        updated.push({ name: model.name, icon: model.icon, exec: model.exec });
+                                        Config.saveAllFavorites(updated);
                                     }
                                 }
                             }
