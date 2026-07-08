@@ -91,6 +91,7 @@ Item {
     property string kbOptions: "grp:alt_shift_toggle"
     property string cursorTheme: ""
     property int cursorSize: 24
+    property string aiTerminalCmd: "claude"
 
     property string weatherUnit: "metric"
     property string weatherApiKey: ""
@@ -118,7 +119,8 @@ Item {
             "kbOptions": config.kbOptions,
             "workspaceCount": config.workspaceCount,
             "cursorTheme": config.cursorTheme,
-            "cursorSize": config.cursorSize
+            "cursorSize": config.cursorSize,
+            "aiTerminalCmd": config.aiTerminalCmd
         };
 
         config.updateJsonBulk(configObj);
@@ -401,6 +403,7 @@ Item {
                         }
                         if (config.rawSettings.cursorTheme !== undefined) config.cursorTheme = config.rawSettings.cursorTheme;
                         if (config.rawSettings.cursorSize !== undefined) config.cursorSize = config.rawSettings.cursorSize;
+                        if (config.rawSettings.aiTerminalCmd !== undefined && config.rawSettings.aiTerminalCmd !== "") config.aiTerminalCmd = config.rawSettings.aiTerminalCmd;
                         
                         // Map Keybinds
                         if (config.rawSettings.keybinds !== undefined && Array.isArray(config.rawSettings.keybinds)) {

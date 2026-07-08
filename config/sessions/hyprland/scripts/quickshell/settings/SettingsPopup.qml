@@ -2020,8 +2020,74 @@ Item {
                             }
                         }
                     }
+
+                    // ── Box 8: AI Terminal command ───────────────────────────
+                    Rectangle {
+                        id: boxAiTerminal
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: aiTermCol.implicitHeight + root.s(32)
+                        radius: root.s(12)
+                        color: root.surface0
+                        border.color: aiTermBoxMa.containsMouse ? root.mauve : root.surface1
+                        border.width: 1
+                        Behavior on border.color { ColorAnimation { duration: 220; easing.type: Easing.OutExpo } }
+
+                        MouseArea { id: aiTermBoxMa; anchors.fill: parent; hoverEnabled: true; z: -1 }
+
+                        ColumnLayout {
+                            id: aiTermCol
+                            anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                            anchors.margins: root.s(16)
+                            spacing: root.s(3)
+
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: root.s(14)
+                                Item {
+                                    Layout.preferredWidth: root.s(22); Layout.alignment: Qt.AlignTop; Layout.topMargin: root.s(2)
+                                    Text {
+                                        anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter
+                                        text: "󰆍"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.mauve
+                                    }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: root.s(3)
+                                    Text {
+                                        text: "AI Terminal"; font.family: "Inter"; font.weight: Font.Medium; font.pixelSize: root.s(14)
+                                        color: root.text; Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: "Command run by the sidebar's AI Terminal tab (SUPER+M-style toggle)"
+                                        font.family: "Inter"; font.pixelSize: root.s(11)
+                                        color: Qt.alpha(root.subtext0, 0.7); Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true; Layout.preferredHeight: root.s(34); Layout.topMargin: root.s(8)
+                                        radius: root.s(7)
+                                        color: root.surface0
+                                        border.color: aiTermCmdInput.activeFocus ? root.mauve : root.surface2
+                                        border.width: 1
+                                        Behavior on border.color { ColorAnimation { duration: 200 } }
+
+                                        TextInput {
+                                            id: aiTermCmdInput
+                                            anchors.fill: parent; anchors.margins: root.s(9)
+                                            verticalAlignment: TextInput.AlignVCenter
+                                            text: Config.aiTerminalCmd
+                                            font.family: "JetBrains Mono"; font.pixelSize: root.s(11)
+                                            color: root.text; clip: true; selectByMouse: true
+                                            onTextChanged: Config.aiTerminalCmd = text
+                                            Text {
+                                                text: "claude"; color: root.subtext0
+                                                visible: !parent.text && !parent.activeFocus; font: parent.font; anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-            }        
+            }
         }
     }
 
