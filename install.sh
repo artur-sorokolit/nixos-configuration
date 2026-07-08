@@ -35,6 +35,7 @@ fi
 PKGS=(
     hyprland hypridle
     mpv mpv-mpris
+    kitty
     playerctl
     jq
     imagemagick
@@ -87,4 +88,7 @@ echo ""
 echo "==> Done."
 echo "    - OpenWeather API key was intentionally NOT synced (gitignored):"
 echo "      set it up in ~/.config/hypr/scripts/quickshell/calendar/.env"
+echo "    - The sidebar's AI Terminal tab runs 'claude' by default (configurable"
+echo "      in Settings > General). The Claude Code CLI is NOT installed by this"
+echo "      script — see https://docs.claude.com/claude-code for install steps."
 echo "    - Log into a Hyprland session (or run: Hyprland) to start."
