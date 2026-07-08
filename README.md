@@ -9,12 +9,28 @@ adapted to run on **CachyOS (Arch-based)** rather than NixOS. It's primarily a b
   preview gallery, size stepper, and an "Import downloaded cursor" button.
   Lives in `scripts/quickshell/cursor/` (`render_cursor.py`, `cursor_manager.sh`).
 - **Wallpaper fixes** — tweaks to `wallpaper/WallpaperPicker.qml` and `wallpaper/matugen_reload.sh`.
+- **Music library tab** — local mp3 playback (via mpv + mpv-mpris) added to the music popup
+  alongside the equalizer, with a sliding-tab switcher. Lives in `scripts/quickshell/music/library.sh`.
 - **Favorite applications** — my own favourites configured in `settings.json`.
 - Misc local scripts: `settings_watcher.sh`, `init.sh`, `layout_switcher.sh`,
   `focus_next_monitor.sh`, `update_notifier.sh`, and `BatteryPopupAlt.qml`.
 
 > [!NOTE]
 > The OpenWeather API key (`scripts/quickshell/calendar/.env`) is intentionally **not** committed (gitignored).
+
+## Installing this exact setup
+
+This is **my own installer**, not upstream's — it installs only the packages my config actually
+uses (no menus, no telemetry, no driver selection) and deploys `config/sessions/hyprland/` to
+`~/.config/hypr`, backing up any existing config first:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/artur-sorokolit/nixos-configuration/master/install.sh)"
+```
+
+For upstream's full interactive installer (menus, GPU driver setup, optional packages), see
+[ilyamiro/imperative-dots](https://github.com/ilyamiro/imperative-dots) — but note that installs
+*his* base config, not mine; you'd still need to run the command above afterward to overlay this fork.
 
 All credit for the original configuration goes to [@ilyamiro](https://github.com/ilyamiro).
 
