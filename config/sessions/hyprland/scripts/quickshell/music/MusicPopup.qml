@@ -60,6 +60,10 @@ Item {
         "preset": "Flat", "pending": false
     }
 
+    // Lower-panel tab: "eq" (equalizer) or "library" (local mp3 track list)
+    property string musicView: "eq"
+    property var libraryTracks: []
+
     // Accumulators for Process standard output
     property string accumulatedMusicOut: ""
     property string accumulatedEqOut: ""
@@ -320,6 +324,34 @@ Item {
                 }
             }
         }
+    }
+
+    Process {
+        id: libraryProc
+        command: ["bash", "-c", "$HOME/.config/hypr/scripts/quickshell/music/library.sh list"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var outStr = this.text.trim();
+                if (outStr.length > 0) {
+                    try { root.libraryTracks = JSON.parse(outStr); } catch(e) {}
+                }
+            }
+        }
+    }
+
+    function playLibraryTrack(track) {
+        root.execCmd(`$HOME/.config/hypr/scripts/quickshell/music/library.sh play "${track}"`);
+    }
+
+    onMusicViewChanged: {
+        if (musicView === "library") {
+            libraryProc.running = false;
+            libraryProc.running = true;
+        }
+    }
+
+    Component.onCompleted: {
+        libraryProc.running = true;
     }
 
     // --- UI LAYOUT ---
@@ -976,10 +1008,85 @@ Item {
                         opacity: root.introEqHeader
                         transform: Translate { y: root.s(15) * (1 - root.introEqHeader) }
 
-                        Text { text: "Equalizer"; color: root.mauve; font.family: "JetBrains Mono"; font.pixelSize: root.s(16); font.bold: true; Layout.fillWidth: true }
-                        
+                        // Sliding-pill tab bar (mirrors the Settings popup tab switcher)
+                        Item {
+                            id: musicTabBar
+                            Layout.preferredWidth: tabItemW * 2
+                            Layout.preferredHeight: root.s(30)
+
+                            property real tabItemW: root.s(100)
+                            property int currentIdx: root.musicView === "eq" ? 0 : 1
+
+                            Rectangle {
+                                id: musicTabPill
+                                height: musicTabBar.height
+                                radius: root.s(8)
+
+                                property color targetColor: musicTabBar.currentIdx === 0 ? root.mauve : root.blue
+                                color: targetColor
+                                Behavior on color { ColorAnimation { duration: 300; easing.type: Easing.OutExpo } }
+
+                                property int prevIdx: 0
+                                property real targetLeft: musicTabBar.currentIdx * musicTabBar.tabItemW
+                                property real targetRight: targetLeft + musicTabBar.tabItemW
+                                property real actualLeft: targetLeft
+                                property real actualRight: targetRight
+
+                                Behavior on actualLeft { NumberAnimation { id: musicTabLeftAnim; duration: 250; easing.type: Easing.OutExpo } }
+                                Behavior on actualRight { NumberAnimation { id: musicTabRightAnim; duration: 250; easing.type: Easing.OutExpo } }
+
+                                Connections {
+                                    target: musicTabBar
+                                    function onCurrentIdxChanged() {
+                                        if (musicTabBar.currentIdx > musicTabPill.prevIdx) {
+                                            musicTabLeftAnim.duration = 200; musicTabRightAnim.duration = 350;
+                                        } else {
+                                            musicTabLeftAnim.duration = 350; musicTabRightAnim.duration = 200;
+                                        }
+                                        musicTabPill.prevIdx = musicTabBar.currentIdx;
+                                    }
+                                }
+
+                                x: actualLeft
+                                width: actualRight - actualLeft
+                            }
+
+                            Row {
+                                anchors.fill: parent
+                                spacing: 0
+
+                                Repeater {
+                                    model: ["Equalizer", "Library"]
+                                    delegate: Item {
+                                        width: musicTabBar.tabItemW
+                                        height: musicTabBar.height
+                                        property bool isActive: musicTabBar.currentIdx === index
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: modelData
+                                            font.family: "JetBrains Mono"
+                                            font.pixelSize: root.s(12)
+                                            font.bold: isActive
+                                            color: isActive ? root.base : root.subtext0
+                                            Behavior on color { ColorAnimation { duration: 250; easing.type: Easing.OutExpo } }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.musicView = index === 0 ? "eq" : "library"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+
                         // Redesigned Apply Button
                         Rectangle {
+                            visible: root.musicView === "eq"
                             Layout.preferredHeight: root.s(28)
                             Layout.preferredWidth: applyTxt.width + root.s(30)
                             radius: root.s(10)
@@ -1023,11 +1130,29 @@ Item {
                                 }
                             }
                         }
-                        Text { text: root.eqData.preset || "Flat"; color: root.subtext0; font.family: "JetBrains Mono"; font.pixelSize: root.s(14); font.bold: true; Layout.leftMargin: root.s(15) }
+                        Text { visible: root.musicView === "eq"; text: root.eqData.preset || "Flat"; color: root.subtext0; font.family: "JetBrains Mono"; font.pixelSize: root.s(14); font.bold: true; Layout.leftMargin: root.s(15) }
                     }
 
-                    // Eq Sliders Container with Canvas Lightning Overlay
+                    // ==========================================
+                    // TAB CONTENT (fixed-height shell so switching
+                    // Equalizer <-> Library never resizes the popup)
+                    // ==========================================
                     Item {
+                        id: musicContentArea
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.s(267)
+
+                    // Eq Sliders Container with Canvas Lightning Overlay
+                    ColumnLayout {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: root.s(15)
+
+                    Item {
+                        visible: root.musicView === "eq"
+                        opacity: visible ? 1.0 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.s(180)
 
@@ -1407,10 +1532,12 @@ Item {
 
                     // Presets Grid
                     ColumnLayout {
+                        visible: root.musicView === "eq"
                         Layout.fillWidth: true
                         spacing: root.s(8)
-                        
-                        opacity: root.introPresets
+
+                        opacity: root.introPresets * (visible ? 1.0 : 0.0)
+                        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
                         transform: Translate { y: root.s(20) * (1 - root.introPresets) }
 
                         RowLayout {
@@ -1430,6 +1557,67 @@ Item {
                             }
                         }
                     }
+                    } // end eq ColumnLayout
+
+                    // ==========================================
+                    // LIBRARY (local mp3 tracks)
+                    // ==========================================
+                    ListView {
+                        visible: root.musicView === "library"
+                        opacity: visible ? 1.0 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
+                        anchors.fill: parent
+                        clip: true
+                        spacing: root.s(6)
+                        model: root.libraryTracks
+
+                        delegate: Rectangle {
+                            id: trackRow
+                            width: ListView.view.width
+                            height: root.s(38)
+                            radius: root.s(8)
+
+                            readonly property bool isCurrent: modelData === root.musicData.title
+
+                            color: isCurrent ? root.surface1 : (trackMa.containsMouse ? "#1AFFFFFF" : root.surface0)
+                            border.color: isCurrent ? root.mauve : Qt.alpha(root.surface2, 0.6)
+                            border.width: 1
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: root.s(12)
+                                anchors.rightMargin: root.s(12)
+                                spacing: root.s(10)
+
+                                Text {
+                                    text: trackRow.isCurrent && root.musicData.status === "Playing" ? "" : ""
+                                    color: root.mauve
+                                    font.family: "Iosevka Nerd Font"
+                                    font.pixelSize: root.s(14)
+                                }
+                                Text {
+                                    text: modelData
+                                    color: trackRow.isCurrent ? root.text : root.subtext0
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: root.s(13)
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
+
+                            MouseArea {
+                                id: trackMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.playLibraryTrack(modelData)
+                            }
+                        }
+                    }
+
+                    } // end musicContentArea
                 }
             }
         }

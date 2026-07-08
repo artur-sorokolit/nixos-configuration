@@ -8,7 +8,7 @@
   "kbOptions": "",
   "monitors": [
     {
-      "name": "DP-2",
+      "name": "DP-1",
       "resW": 2560,
       "resH": 1440,
       "rate": 165,
@@ -588,6 +588,14 @@
       "dispatcher": "workspace",
       "command": "-1",
       "isEditing": false
+    },
+    {
+      "type": "bind",
+      "mods": "$mainMod",
+      "key": "M",
+      "dispatcher": "exec",
+      "command": "bash ~/.config/hypr/scripts/qs_manager.sh toggle music",
+      "isEditing": false
     }
   ],
   "startup": [
@@ -635,21 +643,6 @@
       "exec": "/usr/bin/antigravity-ide"
     },
     {
-      "name": "Virtual Machine Manager",
-      "icon": "virt-manager",
-      "exec": "virt-manager"
-    },
-    {
-      "name": "PineconeMC",
-      "icon": "/usr/share/icons/hicolor/scalable/apps/io.github.elyprismlauncher.ElyPrismLauncher.svg",
-      "exec": "elyprismlauncher"
-    },
-    {
-      "name": "Antigravity",
-      "icon": "/usr/share/pixmaps/antigravity.png",
-      "exec": "/usr/bin/antigravity"
-    },
-    {
       "name": "Steam",
       "icon": "/usr/share/icons/hicolor/256x256/apps/steam.png",
       "exec": "/usr/bin/steam"
@@ -658,11 +651,6 @@
       "name": "Visual Studio Code",
       "icon": "/usr/share/pixmaps/vscode.png",
       "exec": "code"
-    },
-    {
-      "name": "PortProton",
-      "icon": "/usr/share/icons/hicolor/scalable/apps/ru.linux_gaming.PortProton.svg",
-      "exec": "portproton"
     }
   ]
 }
