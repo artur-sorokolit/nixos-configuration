@@ -2,7 +2,8 @@
 
 This is my personal fork of [**ilyamiro/nixos-configuration**](https://github.com/ilyamiro/nixos-configuration),
 adapted to run on **CachyOS (Arch-based)** rather than NixOS. It's primarily a backup of my live
-`~/.config/hypr/` (mirrored into `config/sessions/hyprland/`).
+`~/.config/hypr/` (mirrored into `config/sessions/hyprland/`), plus a backup of my
+[Claude Code](https://claude.com/claude-code) skills/memory in `claude/` (see `claude/README.md`).
 
 **My additions on top of upstream:**
 - **Cursor settings** — a cursor manager built into the Quickshell settings (General tab): theme
